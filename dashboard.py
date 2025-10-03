@@ -5,6 +5,7 @@ import plotly.express as px
 from pathlib import Path
 import sys
 import hmac
+st.set_page_config(page_title="Wine Market Analysis", page_icon="🍷", layout="wide")
 
 # Agregar path para importar módulos
 sys.path.insert(0, str(Path(__file__).parent))
@@ -53,7 +54,7 @@ with st.sidebar:
 # ===============================================
 # DASHBOARD
 # ===============================================
-st.set_page_config(page_title="Wine Market Analysis", page_icon="🍷", layout="wide")
+
 st.title("🍷 Análisis de Mercado de Vinos - México")
 st.markdown("---")
 
