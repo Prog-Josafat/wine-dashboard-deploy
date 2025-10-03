@@ -7,17 +7,11 @@ import sys
 import hmac
 st.set_page_config(page_title="Wine Market Analysis", page_icon="🍷", layout="wide")
 
-# Agregar path para importar módulos
 sys.path.insert(0, str(Path(__file__).parent))
 
-# ▼▼▼ CORRECCIÓN DE LA RUTA DE IMPORTACIÓN ▼▼▼
 from wine_scraper.utils.data_consolidator import DataConsolidator
 from wine_scraper.utils.data_quality import DataQuality
 
-
-# ===============================================
-# SISTEMA DE AUTENTICACIÓN (sin cambios)
-# ===============================================
 def check_password():
     def login_form():
         st.markdown("## 🔐 Acceso al Dashboard")
@@ -54,15 +48,12 @@ with st.sidebar:
 # ===============================================
 # DASHBOARD
 # ===============================================
-
 st.title("🍷 Análisis de Mercado de Vinos - México")
 st.markdown("---")
 
-# Cargar datos
 @st.cache_data
 def load_data():
     """Carga datos de la carpeta consolidada más reciente"""
-    # La lógica para NO crear una nueva carpeta se mantiene correcta
     consolidator = DataConsolidator('./data', create_new_dir=False)
     
     latest_dir = consolidator.output_dir
@@ -83,9 +74,6 @@ def load_data():
 df = load_data()
 quality = DataQuality()
 
-# El resto del código no necesita cambios
-# ... (Sidebar, Filtros, Gráficas, etc.)
-# Sidebar - Filtros (sin cambios)
 st.sidebar.header("🔍 Filtros")
 tiendas_seleccionadas = st.sidebar.multiselect("Tiendas", options=df['tienda'].unique(), default=df['tienda'].unique())
 tipos_seleccionados = st.sidebar.multiselect("Tipo de Vino", options=df['tipo_vino'].unique(), default=df['tipo_vino'].unique())
@@ -93,14 +81,12 @@ precio_min = float(df['precio_actual'].min())
 precio_max = float(df['precio_actual'].max())
 rango_precio = st.sidebar.slider("Rango de Precio", min_value=precio_min, max_value=precio_max, value=(precio_min, precio_max))
 
-# Aplicar filtros (sin cambios)
 df_filtrado = df[
     (df['tienda'].isin(tiendas_seleccionadas)) &
     (df['tipo_vino'].isin(tipos_seleccionados)) &
     (df['precio_actual'].between(rango_precio[0], rango_precio[1]))
 ]
 
-# El resto del código del dashboard se mantiene igual...
 df_precios = quality.get_dataset_for_analysis(df_filtrado, 'precio')
 col1, col2, col3, col4 = st.columns(4)
 with col1:
@@ -113,7 +99,6 @@ with col4:
     st.metric("Tiendas Activas", df_filtrado['tienda'].nunique())
 st.markdown("---")
 
-# SECCIÓN 1: Análisis de Precios (sin cambios)
 st.header("💰 1. Análisis de Precios")
 tab1, tab2, tab3 = st.tabs(["Distribución", "Por Tienda", "Por Tipo"])
 with tab1:
@@ -137,7 +122,6 @@ with tab3:
     st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 
-# SECCIÓN 2: Análisis de Catálogo (sin cambios)
 st.header("📚 2. Análisis de Catálogo")
 df_catalogo = quality.get_dataset_for_analysis(df_filtrado, 'catalogo')
 col1, col2 = st.columns(2)
@@ -153,5 +137,4 @@ with col2:
     st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 
-# Footer
 st.caption("🍷 Wine Market Analysis Dashboard")
