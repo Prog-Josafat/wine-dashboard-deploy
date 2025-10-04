@@ -1,16 +1,26 @@
-# dashboard_deploy.py (Deploy)
+# dashboard_deploy.py (Deploy - Versión Final con Análisis Comparativo)
 import streamlit as st
 import pandas as pd
 import plotly.express as px
 from pathlib import Path
 import sys
 import hmac
+from glob import glob
 
-st.set_page_config(page_title="Wine Market Analysis", page_icon="🍷", layout="wide")
-
+# Agregar path para importar módulos
 sys.path.insert(0, str(Path(__file__).parent))
 from wine_scraper.utils import DataQuality, DataConsolidator
 
+def get_available_dates(base_path='./data/consolidated'):
+    """Encuentra todas las carpetas de datos consolidados disponibles."""
+    date_dirs = [Path(p).name for p in glob(f"{base_path}/*")]
+    dates = sorted([d for d in date_dirs if d.isdigit()], reverse=True)
+    return dates
+
+# Configuración de página
+st.set_page_config(page_title="Wine Market Analysis", page_icon="🍷", layout="wide")
+
+# --- Sistema de Autenticación ---
 def check_password():
     def login_form():
         st.markdown("## 🔐 Acceso al Dashboard")
@@ -37,6 +47,7 @@ def check_password():
 if not check_password():
     st.stop()
 
+# --- Comienza el Dashboard ---
 with st.sidebar:
     st.markdown("---")
     if st.button("🚪 Cerrar Sesión"):
@@ -65,7 +76,8 @@ def load_data():
 df = load_data()
 quality = DataQuality()
 
-st.sidebar.header("🔍 Filtros")
+# --- Sidebar - Filtros ---
+st.sidebar.header("🔍 Filtros de Mercado")
 tiendas_seleccionadas = st.sidebar.multiselect("Tiendas", options=df['tienda'].unique(), default=df['tienda'].unique())
 tipos_seleccionados = st.sidebar.multiselect("Tipo de Vino", options=df['tipo_vino'].unique(), default=df['tipo_vino'].unique())
 precio_min = float(df['precio_actual'].min())
@@ -79,6 +91,19 @@ paises_seleccionados = st.sidebar.multiselect("País de Origen", options=paises_
 segmentos_disponibles = sorted(df_filtrado_temp['segmento_precio'].unique())
 segmentos_seleccionados = st.sidebar.multiselect("Segmento de Precio", options=segmentos_disponibles, default=segmentos_disponibles)
 
+# --- Sidebar - Comparador Temporal ---
+st.sidebar.markdown("---")
+st.sidebar.header("🔬 Análisis Comparativo Temporal")
+available_dates = get_available_dates()
+if len(available_dates) >= 2:
+    date1 = st.sidebar.selectbox("Selecciona la fecha base (anterior):", available_dates, index=1)
+    date2 = st.sidebar.selectbox("Selecciona la fecha a comparar (nueva):", available_dates, index=0)
+    run_comparison = st.sidebar.button("📊 Comparar Periodos")
+else:
+    st.sidebar.info("Se necesitan al menos dos carpetas de datos para poder comparar.")
+    run_comparison = False
+
+# --- Lógica de Filtrado Completa ---
 df_filtrado = df[
     (df['tienda'].isin(tiendas_seleccionadas)) &
     (df['tipo_vino'].isin(tipos_seleccionados)) &
@@ -89,6 +114,7 @@ df_filtrado = df[
 df_precios = quality.get_dataset_for_analysis(df_filtrado, 'precio')
 df_catalogo = quality.get_dataset_for_analysis(df_filtrado, 'catalogo')
 
+# KPIs principales
 col1, col2, col3, col4 = st.columns(4)
 with col1: st.metric("Productos Filtrados", len(df_filtrado))
 with col2: st.metric("Precio Promedio", f"${df_precios['precio_actual'].mean():.2f}")
@@ -96,6 +122,7 @@ with col3: st.metric("Con Descuento", f"{(df_filtrado['tiene_descuento'].sum() /
 with col4: st.metric("Tiendas Activas", df_filtrado['tienda'].nunique())
 st.markdown("---")
 
+# SECCIÓN 1: Análisis de Precios
 st.header("💰 1. Análisis de Precios")
 tab1, tab2, tab3 = st.tabs(["Distribución", "Por Tienda", "Por Tipo"])
 with tab1:
@@ -118,6 +145,7 @@ with tab3:
     st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 
+# SECCIÓN 2: Análisis de Catálogo
 st.header("📚 2. Análisis de Catálogo")
 col1, col2 = st.columns(2)
 with col1:
@@ -138,6 +166,7 @@ with col2:
     st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 
+# SECCIÓN 3: Oportunidades de Nicho
 st.header("💎 3. Oportunidades de Nicho")
 combinaciones = df_catalogo.groupby(['tipo_vino', 'pais_origen']).size().reset_index(name='cantidad')
 pivot = combinaciones.pivot(index='tipo_vino', columns='pais_origen', values='cantidad').fillna(0)
@@ -147,6 +176,7 @@ fig = px.imshow(pivot, title="Mapa de Disponibilidad: Tipo de Vino vs. País de 
 st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 
+# SECCIÓN 4: Mapa de Competitividad
 st.header("🏪 4. Mapa de Competitividad")
 df_competencia = df_filtrado.groupby('tienda').agg(num_vinos=('nombre', 'count'), precio_promedio=('precio_actual', 'mean')).reset_index()
 fig_competidores = px.scatter(df_competencia, x='num_vinos', y='precio_promedio', size='num_vinos', color='precio_promedio', text='tienda',
@@ -157,6 +187,7 @@ fig_competidores.update_traces(textposition='top center')
 st.plotly_chart(fig_competidores, use_container_width=True)
 st.markdown("---")
 
+# SECCIÓN 5: RECOMENDACIONES ESTRATÉGICAS
 st.header("🎯 5. Recomendaciones Estratégicas Dinámicas")
 if not df_filtrado.empty:
     col1, col2 = st.columns(2)
@@ -197,6 +228,7 @@ else:
     st.warning("No hay datos con los filtros seleccionados para generar recomendaciones.")
 st.markdown("---")
 
+# SECCIÓN 6: CUOTA DE MERCADO POR UVA (TREEMAP)
 st.header("🍇 6. Cuota de Mercado por Tipo de Uva")
 df_uvas_treemap = df_filtrado[~df_filtrado['uva_varietal'].isin(['No especificado', 'Tinto', 'Blanco'])].copy()
 df_uvas_treemap = df_uvas_treemap['uva_varietal'].value_counts().nlargest(20).reset_index()
@@ -208,6 +240,7 @@ st.plotly_chart(fig, use_container_width=True)
 st.markdown("**Insight:** Los rectángulos más grandes representan las uvas con mayor dominancia en el mercado. Úsalo para balancear tu inventario.")
 st.markdown("---")
 
+# SECCIÓN 7: DENSIDAD DE PRECIOS POR COMPETIDOR (VIOLIN PLOT)
 st.header("🎻 7. Densidad de Precios por Competidor")
 fig = px.violin(df_filtrado, x='tienda', y='precio_actual', color='tienda', box=True,
                 title='Distribución y Densidad de Precios por Tienda',
@@ -216,6 +249,7 @@ st.plotly_chart(fig, use_container_width=True)
 st.markdown("**Insight:** La parte ancha del 'violín' indica dónde se concentra la mayor cantidad de vinos de una tienda. Un violín ancho y corto significa una estrategia de precios muy enfocada.")
 st.markdown("---")
 
+# SECCIÓN 8: ANÁLISIS DE DESCUENTOS (STACKED BAR)
 st.header("📊 8. Actividad de Descuentos por Categoría de Vino")
 df_descuentos = df_filtrado.groupby(['tipo_vino', 'tiene_descuento']).size().reset_index(name='cantidad')
 df_descuentos['tiene_descuento'] = df_descuentos['tiene_descuento'].map({True: 'Con Descuento', False: 'Sin Descuento'})
@@ -227,6 +261,66 @@ fig = px.bar(df_descuentos, x='tipo_vino', y='cantidad', color='tiene_descuento'
 fig.update_traces(textposition='inside', textfont_size=12)
 st.plotly_chart(fig, use_container_width=True)
 st.markdown("**Insight:** Observa qué categorías tienen una barra roja más grande. Esto puede indicar alta competencia o una estrategia para atraer volumen en ese segmento.")
+st.markdown("---")
 
+# SECCIÓN 9: ANÁLISIS COMPARATIVO TEMPORAL
+if run_comparison:
+    st.header(f"📈 Comparativa de Mercado: {date1} vs. {date2}")
+
+    @st.cache_data
+    def load_specific_data(date_str):
+        filepath = Path(f'./data/consolidated/{date_str}/datos_completos_listos.csv')
+        if filepath.exists():
+            return pd.read_csv(filepath)
+        return pd.DataFrame()
+
+    df_base = load_specific_data(date1)
+    df_compare = load_specific_data(date2)
+
+    if df_base.empty or df_compare.empty:
+        st.error("No se pudieron cargar los datos para una o ambas fechas.")
+    else:
+        st.subheader("💰 Evolución de Precios")
+        df_base['product_id'] = df_base['nombre'] + " | " + df_base['tienda']
+        df_compare['product_id'] = df_compare['nombre'] + " | " + df_compare['tienda']
+        df_merged = pd.merge(df_base[['product_id', 'precio_actual', 'nombre']], df_compare[['product_id', 'precio_actual']], on='product_id', suffixes=('_anterior', '_nuevo'))
+        df_merged['cambio_precio'] = df_merged['precio_actual_nuevo'] - df_merged['precio_actual_anterior']
+        df_merged['cambio_pct'] = (df_merged['cambio_precio'] / df_merged['precio_actual_anterior']) * 100
+        df_con_cambios = df_merged[df_merged['cambio_precio'] != 0].sort_values('cambio_pct', ascending=False)
+        
+        st.metric("Productos Comunes Analizados", f"{len(df_merged)} vinos")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("##### 🔺 Vinos con Mayor Aumento de Precio")
+            st.dataframe(df_con_cambios[['nombre', 'precio_actual_anterior', 'precio_actual_nuevo', 'cambio_pct']].head(10).style.format({'cambio_pct': '{:.2f}%'}))
+        with col2:
+            st.markdown("##### 🔻 Vinos con Mayor Reducción de Precio")
+            st.dataframe(df_con_cambios[['nombre', 'precio_actual_anterior', 'precio_actual_nuevo', 'cambio_pct']].tail(10).sort_values('cambio_pct').style.format({'cambio_pct': '{:.2f}%'}))
+            
+        st.subheader("📦 Evolución del Catálogo de Productos")
+        set_base = set(df_base['product_id'])
+        set_compare = set(df_compare['product_id'])
+        vinos_nuevos = set_compare - set_base
+        vinos_descontinuados = set_base - set_compare
+        
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Vinos Nuevos en el Catálogo", f"{len(vinos_nuevos)}")
+        col2.metric("Vinos Descontinuados", f"{len(vinos_descontinuados)}")
+        col3.metric("Cambio Neto en Productos", f"{len(set_compare) - len(set_base)}")
+
+        st.subheader("🏪 Cambio en Catálogo por Tienda")
+        cat_base = df_base['tienda'].value_counts().reset_index()
+        cat_base.columns = ['tienda', 'vinos_anterior']
+        cat_compare = df_compare['tienda'].value_counts().reset_index()
+        cat_compare.columns = ['tienda', 'vinos_nuevo']
+        df_tiendas = pd.merge(cat_base, cat_compare, on='tienda', how='outer').fillna(0)
+        df_tiendas['cambio'] = df_tiendas['vinos_nuevo'] - df_tiendas['vinos_anterior']
+
+        fig = px.bar(df_tiendas, x='tienda', y='cambio', title='Cambio Neto en el Número de Vinos por Tienda',
+                     labels={'tienda': 'Tienda', 'cambio': 'Cambio Neto en No. de Vinos'},
+                     color='cambio', color_continuous_scale='RdYlGn')
+        st.plotly_chart(fig, use_container_width=True)
+
+# --- Footer ---
 st.markdown("---")
 st.caption("🍷 Wine Market Analysis Dashboard | Datos actualizados: " + df['fecha_scraping'].max())
