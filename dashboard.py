@@ -1,4 +1,4 @@
-# dashboard_deploy.py (Deploy - Versión Final con TODAS las Etiquetas Corregidas)
+# dashboard_deploy.py (Deploy)
 import streamlit as st
 import pandas as pd
 import plotly.express as px
@@ -6,14 +6,11 @@ from pathlib import Path
 import sys
 import hmac
 
-# Configuración de página
 st.set_page_config(page_title="Wine Market Analysis", page_icon="🍷", layout="wide")
 
-# Agregar path para importar módulos
 sys.path.insert(0, str(Path(__file__).parent))
 from wine_scraper.utils import DataQuality, DataConsolidator
 
-# --- Sistema de Autenticación ---
 def check_password():
     def login_form():
         st.markdown("## 🔐 Acceso al Dashboard")
@@ -40,7 +37,6 @@ def check_password():
 if not check_password():
     st.stop()
 
-# --- Comienza el Dashboard ---
 with st.sidebar:
     st.markdown("---")
     if st.button("🚪 Cerrar Sesión"):
@@ -69,7 +65,6 @@ def load_data():
 df = load_data()
 quality = DataQuality()
 
-# --- Sidebar - Filtros ---
 st.sidebar.header("🔍 Filtros")
 tiendas_seleccionadas = st.sidebar.multiselect("Tiendas", options=df['tienda'].unique(), default=df['tienda'].unique())
 tipos_seleccionados = st.sidebar.multiselect("Tipo de Vino", options=df['tipo_vino'].unique(), default=df['tipo_vino'].unique())
@@ -84,7 +79,6 @@ paises_seleccionados = st.sidebar.multiselect("País de Origen", options=paises_
 segmentos_disponibles = sorted(df_filtrado_temp['segmento_precio'].unique())
 segmentos_seleccionados = st.sidebar.multiselect("Segmento de Precio", options=segmentos_disponibles, default=segmentos_disponibles)
 
-# --- Lógica de Filtrado Completa ---
 df_filtrado = df[
     (df['tienda'].isin(tiendas_seleccionadas)) &
     (df['tipo_vino'].isin(tipos_seleccionados)) &
@@ -95,7 +89,6 @@ df_filtrado = df[
 df_precios = quality.get_dataset_for_analysis(df_filtrado, 'precio')
 df_catalogo = quality.get_dataset_for_analysis(df_filtrado, 'catalogo')
 
-# KPIs principales
 col1, col2, col3, col4 = st.columns(4)
 with col1: st.metric("Productos Filtrados", len(df_filtrado))
 with col2: st.metric("Precio Promedio", f"${df_precios['precio_actual'].mean():.2f}")
@@ -103,7 +96,6 @@ with col3: st.metric("Con Descuento", f"{(df_filtrado['tiene_descuento'].sum() /
 with col4: st.metric("Tiendas Activas", df_filtrado['tienda'].nunique())
 st.markdown("---")
 
-# SECCIÓN 1: Análisis de Precios
 st.header("💰 1. Análisis de Precios")
 tab1, tab2, tab3 = st.tabs(["Distribución", "Por Tienda", "Por Tipo"])
 with tab1:
@@ -126,7 +118,6 @@ with tab3:
     st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 
-# SECCIÓN 2: Análisis de Catálogo
 st.header("📚 2. Análisis de Catálogo")
 col1, col2 = st.columns(2)
 with col1:
@@ -147,7 +138,6 @@ with col2:
     st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 
-# SECCIÓN 3: Oportunidades de Nicho
 st.header("💎 3. Oportunidades de Nicho")
 combinaciones = df_catalogo.groupby(['tipo_vino', 'pais_origen']).size().reset_index(name='cantidad')
 pivot = combinaciones.pivot(index='tipo_vino', columns='pais_origen', values='cantidad').fillna(0)
@@ -157,7 +147,6 @@ fig = px.imshow(pivot, title="Mapa de Disponibilidad: Tipo de Vino vs. País de 
 st.plotly_chart(fig, use_container_width=True)
 st.markdown("---")
 
-# SECCIÓN 4: Mapa de Competitividad
 st.header("🏪 4. Mapa de Competitividad")
 df_competencia = df_filtrado.groupby('tienda').agg(num_vinos=('nombre', 'count'), precio_promedio=('precio_actual', 'mean')).reset_index()
 fig_competidores = px.scatter(df_competencia, x='num_vinos', y='precio_promedio', size='num_vinos', color='precio_promedio', text='tienda',
@@ -168,7 +157,6 @@ fig_competidores.update_traces(textposition='top center')
 st.plotly_chart(fig_competidores, use_container_width=True)
 st.markdown("---")
 
-# SECCIÓN 5: RECOMENDACIONES ESTRATÉGICAS
 st.header("🎯 5. Recomendaciones Estratégicas Dinámicas")
 if not df_filtrado.empty:
     col1, col2 = st.columns(2)
@@ -209,7 +197,6 @@ else:
     st.warning("No hay datos con los filtros seleccionados para generar recomendaciones.")
 st.markdown("---")
 
-# SECCIÓN 6: CUOTA DE MERCADO POR UVA (TREEMAP)
 st.header("🍇 6. Cuota de Mercado por Tipo de Uva")
 df_uvas_treemap = df_filtrado[~df_filtrado['uva_varietal'].isin(['No especificado', 'Tinto', 'Blanco'])].copy()
 df_uvas_treemap = df_uvas_treemap['uva_varietal'].value_counts().nlargest(20).reset_index()
@@ -221,7 +208,6 @@ st.plotly_chart(fig, use_container_width=True)
 st.markdown("**Insight:** Los rectángulos más grandes representan las uvas con mayor dominancia en el mercado. Úsalo para balancear tu inventario.")
 st.markdown("---")
 
-# SECCIÓN 7: DENSIDAD DE PRECIOS POR COMPETIDOR (VIOLIN PLOT)
 st.header("🎻 7. Densidad de Precios por Competidor")
 fig = px.violin(df_filtrado, x='tienda', y='precio_actual', color='tienda', box=True,
                 title='Distribución y Densidad de Precios por Tienda',
@@ -230,7 +216,6 @@ st.plotly_chart(fig, use_container_width=True)
 st.markdown("**Insight:** La parte ancha del 'violín' indica dónde se concentra la mayor cantidad de vinos de una tienda. Un violín ancho y corto significa una estrategia de precios muy enfocada.")
 st.markdown("---")
 
-# SECCIÓN 8: ANÁLISIS DE DESCUENTOS (STACKED BAR)
 st.header("📊 8. Actividad de Descuentos por Categoría de Vino")
 df_descuentos = df_filtrado.groupby(['tipo_vino', 'tiene_descuento']).size().reset_index(name='cantidad')
 df_descuentos['tiene_descuento'] = df_descuentos['tiene_descuento'].map({True: 'Con Descuento', False: 'Sin Descuento'})
@@ -243,6 +228,5 @@ fig.update_traces(textposition='inside', textfont_size=12)
 st.plotly_chart(fig, use_container_width=True)
 st.markdown("**Insight:** Observa qué categorías tienen una barra roja más grande. Esto puede indicar alta competencia o una estrategia para atraer volumen en ese segmento.")
 
-# --- Footer ---
 st.markdown("---")
 st.caption("🍷 Wine Market Analysis Dashboard | Datos actualizados: " + df['fecha_scraping'].max())
