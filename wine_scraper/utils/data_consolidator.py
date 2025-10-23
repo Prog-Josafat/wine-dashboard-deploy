@@ -14,18 +14,15 @@ class DataConsolidator:
         self.consolidated_base.mkdir(exist_ok=True)
         
         if create_new_dir:
-            # Comportamiento original: crear carpeta con fecha actual (para el scraper)
             timestamp = datetime.now().strftime("%Y%m%d")
             self.output_dir = self.consolidated_base / timestamp
             self.output_dir.mkdir(exist_ok=True)
             logger.info(f"Usando (y creando si es necesario) el directorio de salida: {self.output_dir}")
         else:
-            # Nuevo comportamiento: buscar la última carpeta existente (para el dashboard)
             latest_dir = self.get_latest_consolidated_dir()
             if latest_dir:
                 self.output_dir = latest_dir
             else:
-                # Si no hay ninguna carpeta, crea una para hoy como respaldo
                 logger.warning("No se encontraron directorios existentes. Creando uno para hoy.")
                 timestamp = datetime.now().strftime("%Y%m%d")
                 self.output_dir = self.consolidated_base / timestamp
@@ -44,7 +41,6 @@ class DataConsolidator:
         """
         all_data = []
         
-        # Recorrer cada carpeta de tienda
         for tienda_dir in self.data_dir.iterdir():
             if not tienda_dir.is_dir() or tienda_dir.name == 'consolidated':
                 continue
@@ -56,7 +52,6 @@ class DataConsolidator:
                 continue
             
             if use_latest:
-                # Usar solo el archivo más reciente
                 csv_files = [max(csv_files, key=lambda p: p.stat().st_mtime)]
             
             logger.info(f"Procesando {len(csv_files)} archivo(s) de {tienda_dir.name}")
@@ -73,7 +68,6 @@ class DataConsolidator:
             logger.error("No se encontraron datos para consolidar")
             return pd.DataFrame()
         
-        # Concatenar todos los DataFrames
         df_consolidated = pd.concat(all_data, ignore_index=True)
         logger.info(f"\n✅ Total consolidado: {len(df_consolidated)} registros de {len(all_data)} archivos")
         
@@ -85,7 +79,6 @@ class DataConsolidator:
             logger.warning("No hay datos para guardar")
             return None
         
-        # Nombre más simple sin timestamp adicional (ya está en la carpeta)
         filename = f"consolidated_wine_data{suffix}.csv"
         filepath = self.output_dir / filename
         
@@ -99,7 +92,6 @@ class DataConsolidator:
         date_dirs = [d for d in self.consolidated_base.iterdir() if d.is_dir() and d.name.isdigit()]
         
         if not date_dirs:
-            # Se elimina el warning de aquí porque ya se maneja en el init
             return None
         
         latest_dir = max(date_dirs, key=lambda d: d.name)
@@ -113,14 +105,13 @@ class DataConsolidator:
         if not latest_dir:
             return None
         
-        # Buscar el archivo consolidado en esa carpeta
         csv_files = list(latest_dir.glob('consolidated_*.csv'))
         
         if not csv_files:
             logger.warning(f"No hay archivos consolidados en {latest_dir.name}")
             return None
         
-        latest = csv_files[0]  # Solo debería haber uno por carpeta
+        latest = csv_files[0] 
         logger.info(f"📂 Usando archivo: {latest.name}")
         return pd.read_csv(latest, encoding='utf-8-sig')
     

@@ -22,14 +22,11 @@ class DataQuality:
         """
         df = df.copy()
         
-        # Crear columna de calidad
         df['calidad_datos'] = 'completo'
         
-        # Identificar problemas críticos
         df.loc[df['precio_actual'].isna() | (df['precio_actual'] <= 0), 'calidad_datos'] = 'sin_precio'
         df.loc[df['nombre'].isna() | (df['nombre'].str.len() < 3), 'calidad_datos'] = 'sin_nombre'
         
-        # Identificar registros parciales pero útiles
         mask_parcial = (
             (df['precio_actual'].notna()) & 
             (df['precio_actual'] > 0) &
@@ -42,7 +39,6 @@ class DataQuality:
         )
         df.loc[mask_parcial, 'calidad_datos'] = 'parcial'
         
-        # Marcar registros completos
         mask_completo = (
             (df['precio_actual'].notna()) & 
             (df['precio_actual'] > 0) &
@@ -71,7 +67,6 @@ class DataQuality:
             DataFrame filtrado
         """
         if tipo_analisis == 'precio':
-            # Solo necesitas precio válido
             subset = df[
                 (df['precio_actual'].notna()) & 
                 (df['precio_actual'] > 0)
@@ -79,7 +74,6 @@ class DataQuality:
             logger.info(f"🔍 Dataset para análisis de precios: {len(subset)}/{len(df)} registros")
             
         elif tipo_analisis == 'competencia':
-            # Necesitas precio + tienda + nombre
             subset = df[
                 (df['precio_actual'].notna()) & 
                 (df['precio_actual'] > 0) &
@@ -89,7 +83,6 @@ class DataQuality:
             logger.info(f"🔍 Dataset para análisis competitivo: {len(subset)}/{len(df)} registros")
             
         elif tipo_analisis == 'catalogo':
-            # Necesitas metadata de productos
             subset = df[
                 (df['tipo_vino'].notna()) & 
                 (df['pais_origen'].notna())
@@ -97,11 +90,10 @@ class DataQuality:
             logger.info(f"🔍 Dataset para análisis de catálogo: {len(subset)}/{len(df)} registros")
             
         elif tipo_analisis == 'geografia':
-            # Solo registros con país de origen
             subset = df[df['pais_origen'].notna()]
             logger.info(f"🔍 Dataset para análisis geográfico: {len(subset)}/{len(df)} registros")
             
-        else:  # 'todo'
+        else:
             subset = df
             logger.info(f"🔍 Dataset completo: {len(subset)} registros")
         
@@ -121,7 +113,6 @@ class DataQuality:
             ].shape[0]
         }
         
-        # Reporte por tienda
         reporte_tiendas = []
         for tienda in df['tienda'].unique():
             df_t = df[df['tienda'] == tienda]
@@ -159,15 +150,11 @@ class DataQuality:
         """
         df = df.copy()
         
-        # Campos de texto
         df['tipo_vino'] = df['tipo_vino'].fillna('No especificado')
         df['pais_origen'] = df['pais_origen'].fillna('No especificado')
         df['region_origen'] = df['region_origen'].fillna('No especificado')
         df['uva_varietal'] = df['uva_varietal'].fillna('No especificado')
         df['tamaño_botella'] = df['tamaño_botella'].fillna('No especificado')
-        
-        # Campos numéricos NO se rellenan (dejar como NaN es correcto)
-        # precio_anterior y descuento_porcentaje quedan como están
         
         logger.info("✓ Valores faltantes marcados como 'No especificado'")
         return df
@@ -185,7 +172,6 @@ class DataQuality:
             'nivel_confianza': ''
         }
         
-        # Clasificar nivel de confianza
         if confianza['porcentaje_cobertura'] >= 80:
             confianza['nivel_confianza'] = 'Alto'
         elif confianza['porcentaje_cobertura'] >= 60:
